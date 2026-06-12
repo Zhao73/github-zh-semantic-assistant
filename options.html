@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GitHub 中文语义助手设置</title>
+    <link rel="stylesheet" href="styles/options.css">
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <p class="eyebrow">GitHub Translator</p>
+        <h1>中文语义助手设置</h1>
+        <p class="lead">固定界面词走本地术语表，仓库介绍和 README 走 OpenAI-compatible 模型。</p>
+      </header>
+
+      <form id="settingsForm" class="layout">
+        <section class="section">
+          <h2>运行范围</h2>
+          <label class="check">
+            <input id="enabled" type="checkbox">
+            <span>启用扩展</span>
+          </label>
+          <label class="check">
+            <input id="translateUi" type="checkbox">
+            <span>翻译 GitHub 界面词</span>
+          </label>
+          <label class="check">
+            <input id="translateLongText" type="checkbox">
+            <span>翻译仓库介绍、README、Issue 和 PR 内容</span>
+          </label>
+
+          <label class="field">
+            <span>长文本显示方式</span>
+            <select id="mode">
+              <option value="bilingual">双语显示</option>
+              <option value="replace">尽量替换原文</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>每页最多翻译块数</span>
+            <input id="maxBlocksPerRun" type="number" min="1" max="120" step="1">
+          </label>
+        </section>
+
+        <section class="section">
+          <h2>AI 模型</h2>
+          <label class="field">
+            <span>Base URL</span>
+            <input id="baseUrl" type="url" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input id="model" type="text" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input id="apiKey" type="password" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="check">
+            <input id="useJsonMode" type="checkbox">
+            <span>请求 JSON mode</span>
+          </label>
+        </section>
+
+        <section class="section wide">
+          <h2>技术术语表</h2>
+          <p class="hint">每行一个规则，格式为 English = 中文。这里决定 agent、RAG、pull request 这类词不会被乱翻。</p>
+          <textarea id="glossary" spellcheck="false"></textarea>
+          <div class="buttonRow">
+            <button id="resetGlossary" type="button">恢复默认术语</button>
+            <button id="clearCache" type="button">清空缓存</button>
+          </div>
+        </section>
+
+        <section class="section wide">
+          <h2>专名保护</h2>
+          <label class="check">
+            <input id="protectProperNouns" type="checkbox">
+            <span>保护人名、组织名、仓库名、包名、模型名和产品名</span>
+          </label>
+          <p class="hint">每行一个不应被翻译的专名。当前 GitHub 页面里的 owner/repo 也会自动加入保护名单。</p>
+          <textarea id="protectedTerms" class="medium" spellcheck="false"></textarea>
+          <div class="buttonRow">
+            <button id="resetProtectedTerms" type="button">恢复默认专名</button>
+          </div>
+        </section>
+
+        <section class="section wide">
+          <h2>测试翻译</h2>
+          <label class="field">
+            <span>测试文本</span>
+            <textarea id="testText" class="short" spellcheck="false">LangChain agents combine RAG, tool calling, and repo-level context in openai/openai-cookbook to help maintainers triage issues faster.</textarea>
+          </label>
+          <output id="testOutput" class="output"></output>
+        </section>
+
+        <footer class="footer">
+          <p id="status" class="status"></p>
+          <div class="buttonRow">
+            <button id="testTranslation" type="button">测试模型</button>
+            <button class="primary" type="submit">保存设置</button>
+          </div>
+        </footer>
+      </form>
+    </main>
+    <script src="src/defaults.js"></script>
+    <script src="src/options.js"></script>
+  </body>
+</html>

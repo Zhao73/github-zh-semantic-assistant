@@ -1,0 +1,42 @@
+.ghzh-translation {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #1f883d;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bgColor-accent-muted, #ddf4ff) 44%, transparent);
+  color: var(--fgColor-default, #1f2328);
+  font-size: 0.95em;
+  line-height: 1.65;
+}
+
+.ghzh-translation::before {
+  content: "中文";
+  display: inline-flex;
+  margin-right: 8px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, #1f883d 35%, transparent);
+  border-radius: 999px;
+  color: #116329;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 1px;
+}
+
+.ghzh-replaced {
+  outline: 1px solid color-mix(in srgb, #1f883d 18%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ghzh-translation {
+    border-left-color: #3fb950;
+    background: color-mix(in srgb, #238636 18%, transparent);
+    color: var(--fgColor-default, #e6edf3);
+  }
+
+  .ghzh-translation::before {
+    border-color: color-mix(in srgb, #3fb950 40%, transparent);
+    color: #7ee787;
+  }
+}

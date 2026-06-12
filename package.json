@@ -1,0 +1,44 @@
+{
+  "name": "github-zh-semantic-assistant",
+  "version": "0.1.0",
+  "description": "A Chrome extension that translates GitHub UI and repository content into precise Chinese with AI-era terminology.",
+  "private": false,
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ghzh": "bin/ghzh.js",
+    "github-zh-semantic-assistant": "bin/ghzh.js"
+  },
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "test:chrome": "node tests/chrome-real-page.mjs",
+    "pack:zip": "node bin/ghzh.js pack",
+    "install:chrome": "node bin/ghzh.js install",
+    "release:local": "npm test && npm run pack:zip"
+  },
+  "keywords": [
+    "chrome-extension",
+    "github",
+    "translation",
+    "chinese",
+    "openai",
+    "llm",
+    "rag",
+    "developer-tools"
+  ],
+  "files": [
+    "assets",
+    "bin",
+    "docs",
+    "src",
+    "styles",
+    "manifest.json",
+    "options.html",
+    "popup.html",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

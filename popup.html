@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GitHub 中文语义助手</title>
+    <link rel="stylesheet" href="styles/popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">GitHub Translator</p>
+          <h1>中文语义助手</h1>
+        </div>
+        <label class="switch" aria-label="启用扩展">
+          <input id="enabled" type="checkbox">
+          <span></span>
+        </label>
+      </header>
+
+      <section class="panel">
+        <label class="field">
+          <span>长文本显示方式</span>
+          <select id="mode">
+            <option value="bilingual">双语显示</option>
+            <option value="replace">尽量替换</option>
+          </select>
+        </label>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section class="actions">
+        <button id="translatePage" class="primary" type="button">翻译当前页</button>
+        <button id="resetPage" type="button">重置页面</button>
+        <button id="openOptions" type="button">设置模型</button>
+      </section>
+    </main>
+    <script src="src/defaults.js"></script>
+    <script src="src/popup.js"></script>
+  </body>
+</html>
