@@ -115,6 +115,11 @@ try {
   await page.goto("https://github.com/openai/openai-cookbook", { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1200);
+  await page.waitForSelector(".ghzh-control", { timeout: 10000 });
+  const controlText = await page.locator(".ghzh-control").innerText({ timeout: 5000 });
+  const controlSwitchState = await page.locator(".ghzh-control__switch").getAttribute("aria-checked", { timeout: 5000 });
+  assert.match(controlText, /中文语义|翻译/);
+  assert.equal(controlSwitchState, "true");
   await serviceWorker.evaluate(async () => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]?.id) {

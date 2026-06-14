@@ -44,6 +44,7 @@
     ".CodeMirror",
     ".cm-editor",
     ".highlight",
+    ".ghzh-control",
     ".ghzh-translation",
     ".ghzh-relative-time",
     ".ghzh-hidden-original"
@@ -52,9 +53,11 @@
   const state = {
     settings: null,
     observer: null,
+    navInstalled: false,
     uiFrame: 0,
     semanticScheduled: 0,
     pendingUiRoots: new Set(),
+    controlPanel: null,
     originals: new WeakMap(),
     attrOriginals: new WeakMap(),
     htmlOriginals: new WeakMap(),
@@ -67,6 +70,7 @@
     state.settings = await loadSettings();
     chrome.storage.onChanged.addListener(handleStorageChange);
     chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+    installControlPanel();
 
     if (state.settings.enabled) {
       runNow();
@@ -83,9 +87,11 @@
   function handleStorageChange(changes, areaName) {
     if (areaName !== "local" || !changes[STORE_KEY]) return;
     state.settings = GHZH.mergeSettings(changes[STORE_KEY].newValue);
+    updateControlPanel();
     if (state.settings.enabled) {
       runNow();
       installObserver();
+      installNavigationListeners();
     } else {
       restorePage();
       uninstallObserver();
@@ -108,6 +114,8 @@
   }
 
   function installNavigationListeners() {
+    if (state.navInstalled) return;
+    state.navInstalled = true;
     ["turbo:render", "turbo:load", "pjax:end", "popstate"].forEach((eventName) => {
       window.addEventListener(eventName, () => scheduleRun(), { passive: true });
     });
@@ -155,10 +163,68 @@
 
   function runNow() {
     if (!state.settings || !state.settings.enabled) return;
+    updateControlPanel();
     const root = document.body || document.documentElement;
     if (!root) return;
     if (state.settings.translateUi) translateUi(root);
     if (state.settings.translateLongText) scheduleSemanticRun(0);
+  }
+
+  function installControlPanel() {
+    if (state.controlPanel || document.querySelector(".ghzh-control")) return;
+    const mount = document.body || document.documentElement;
+    if (!mount) {
+      window.setTimeout(installControlPanel, 50);
+      return;
+    }
+
+    const panel = document.createElement("aside");
+    panel.className = "ghzh-control";
+    panel.setAttribute("aria-label", "GitHub 中文语义助手");
+    panel.innerHTML = [
+      '<div class="ghzh-control__head">',
+      '  <span class="ghzh-control__title">中文语义</span>',
+      '  <button class="ghzh-control__settings" type="button">设置</button>',
+      '</div>',
+      '<button class="ghzh-control__switch" type="button" role="switch" aria-checked="true">',
+      '  <span class="ghzh-control__switch-track"><span class="ghzh-control__switch-thumb"></span></span>',
+      '  <span class="ghzh-control__switch-text">翻译</span>',
+      '</button>',
+      '<div class="ghzh-control__status" aria-live="polite"></div>'
+    ].join("");
+    mount.appendChild(panel);
+    state.controlPanel = panel;
+
+    panel.querySelector(".ghzh-control__switch").addEventListener("click", togglePageTranslation);
+    panel.querySelector(".ghzh-control__settings").addEventListener("click", () => {
+      chrome.runtime.openOptionsPage();
+    });
+    updateControlPanel();
+  }
+
+  async function togglePageTranslation() {
+    if (!state.settings) return;
+    const next = GHZH.mergeSettings({ ...state.settings, enabled: !state.settings.enabled });
+    state.settings = next;
+    updateControlPanel();
+    await chrome.storage.local.set({ [STORE_KEY]: next });
+  }
+
+  function updateControlPanel() {
+    const panel = state.controlPanel || document.querySelector(".ghzh-control");
+    if (!panel || !state.settings) return;
+    state.controlPanel = panel;
+    const enabled = Boolean(state.settings.enabled);
+    const hasAi = GHZH.hasAiConfig(state.settings);
+    const switchButton = panel.querySelector(".ghzh-control__switch");
+    const switchText = panel.querySelector(".ghzh-control__switch-text");
+    const status = panel.querySelector(".ghzh-control__status");
+    switchButton.setAttribute("aria-checked", String(enabled));
+    panel.dataset.enabled = String(enabled);
+    switchText.textContent = enabled ? "翻译" : "原文";
+    status.textContent = enabled
+      ? (hasAi ? `AI: ${state.settings.ai.model}` : "AI 未配置: 仅固定界面")
+      : "原文模式";
   }
 
   function queueUiRun(root) {
