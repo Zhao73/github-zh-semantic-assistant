@@ -16,6 +16,11 @@
     ".comment-body .markdown-body blockquote",
     ".js-issue-title",
     "[data-testid='repository-description']",
+    "[itemprop='description']",
+    "main article p",
+    "main .Box-row p",
+    "main .Box p",
+    "main .f4.my-3",
     ".BorderGrid-row .f4"
   ];
 
@@ -47,7 +52,9 @@
   const state = {
     settings: null,
     observer: null,
-    scheduled: 0,
+    uiFrame: 0,
+    semanticScheduled: 0,
+    pendingUiRoots: new Set(),
     originals: new WeakMap(),
     attrOriginals: new WeakMap(),
     htmlOriginals: new WeakMap(),
@@ -109,9 +116,24 @@
   function installObserver() {
     if (state.observer || !document.documentElement) return;
     state.observer = new MutationObserver((mutations) => {
-      if (mutations.some((mutation) => mutation.addedNodes.length || mutation.type === "characterData")) {
-        scheduleRun();
-      }
+      let needsSemanticRun = false;
+      mutations.forEach((mutation) => {
+        if (mutation.type === "characterData") {
+          queueUiRun(mutation.target.parentElement || document.body || document.documentElement);
+          needsSemanticRun = true;
+          return;
+        }
+
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            queueUiRun(node);
+            needsSemanticRun = true;
+          } else if (node.nodeType === Node.TEXT_NODE) {
+            queueUiRun(node.parentElement || mutation.target);
+          }
+        });
+      });
+      if (needsSemanticRun) scheduleSemanticRun(220);
     });
     state.observer.observe(document.documentElement, {
       childList: true,
@@ -127,14 +149,48 @@
   }
 
   function scheduleRun() {
-    clearTimeout(state.scheduled);
-    state.scheduled = window.setTimeout(runNow, 450);
+    queueUiRun(document.body || document.documentElement);
+    scheduleSemanticRun(220);
   }
 
   function runNow() {
-    if (!state.settings || !state.settings.enabled || !document.body) return;
-    if (state.settings.translateUi) translateUi(document.body);
-    if (state.settings.translateLongText) translateSemanticBlocks();
+    if (!state.settings || !state.settings.enabled) return;
+    const root = document.body || document.documentElement;
+    if (!root) return;
+    if (state.settings.translateUi) translateUi(root);
+    if (state.settings.translateLongText) scheduleSemanticRun(0);
+  }
+
+  function queueUiRun(root) {
+    if (!state.settings?.enabled || !state.settings.translateUi || !root) return;
+    const element = root.nodeType === Node.ELEMENT_NODE ? root : root.parentElement;
+    if (!element) return;
+    state.pendingUiRoots.add(element);
+    if (state.uiFrame) return;
+    state.uiFrame = window.requestAnimationFrame(() => {
+      state.uiFrame = 0;
+      const roots = compactRoots([...state.pendingUiRoots]);
+      state.pendingUiRoots.clear();
+      roots.forEach((item) => translateUi(item));
+    });
+  }
+
+  function scheduleSemanticRun(delay) {
+    if (!state.settings?.enabled || !state.settings.translateLongText) return;
+    clearTimeout(state.semanticScheduled);
+    state.semanticScheduled = window.setTimeout(translateSemanticBlocks, delay);
+  }
+
+  function compactRoots(roots) {
+    const valid = roots
+      .filter((root) => root && root.isConnected && !shouldSkipElement(root))
+      .map((root) => (root === document.documentElement ? document.body || root : root))
+      .filter(Boolean);
+    if (valid.length > 80) return [document.body || document.documentElement];
+    return valid.filter((root, index) => {
+      if (valid.indexOf(root) !== index) return false;
+      return !valid.some((other) => other !== root && other.contains(root));
+    });
   }
 
   function translateUi(root) {

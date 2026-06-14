@@ -150,10 +150,27 @@ try {
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(fatalConsole, []);
 
+  await page.goto("https://github.com/trending", { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
+  await serviceWorker.evaluate(async () => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0]?.id) {
+      try {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: "GHZH_RUN_NOW" });
+      } catch (error) {
+        // The content script also runs automatically; this only removes first-install timing flake.
+      }
+    }
+  });
+  await page.waitForSelector(".ghzh-translation", { timeout: 30000 });
+  const trendingText = await page.locator("body").innerText({ timeout: 10000 });
+  assert.match(trendingText, /趋势|开发者|日期范围|今天|自然语言|编程语言/);
+
   console.log(JSON.stringify({
     ok: true,
     extensionId,
-    url: page.url(),
+    url: "https://github.com/openai/openai-cookbook",
+    extraUrl: page.url(),
     aiRequestCount: aiRequests.length,
     screenshotPath
   }, null, 2));
