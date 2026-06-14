@@ -1,6 +1,7 @@
 (() => {
   const GHZH = globalThis.GHZH_DEFAULTS;
   const STORE_KEY = "ghzhSettings";
+  const CONTROL_POSITION_KEY = "ghzhControlPosition";
   const TRANSLATION_SELECTORS = [
     "#readme article.markdown-body h1",
     "#readme article.markdown-body h2",
@@ -58,6 +59,7 @@
     semanticScheduled: 0,
     pendingUiRoots: new Set(),
     controlPanel: null,
+    dragging: null,
     originals: new WeakMap(),
     attrOriginals: new WeakMap(),
     htmlOriginals: new WeakMap(),
@@ -182,9 +184,12 @@
     panel.className = "ghzh-control";
     panel.setAttribute("aria-label", "GitHub 中文语义助手");
     panel.innerHTML = [
-      '<div class="ghzh-control__head">',
-      '  <span class="ghzh-control__title">中文语义</span>',
-      '  <button class="ghzh-control__settings" type="button">设置</button>',
+      '<div class="ghzh-control__head" title="拖动移动面板">',
+      '  <span class="ghzh-control__title">中文</span>',
+      '  <div class="ghzh-control__actions">',
+      '    <button class="ghzh-control__minimize" type="button" aria-label="缩小面板" title="缩小面板">−</button>',
+      '    <button class="ghzh-control__settings" type="button">设置</button>',
+      '  </div>',
       '</div>',
       '<button class="ghzh-control__switch" type="button" role="switch" aria-checked="true">',
       '  <span class="ghzh-control__switch-track"><span class="ghzh-control__switch-thumb"></span></span>',
@@ -194,11 +199,12 @@
     ].join("");
     mount.appendChild(panel);
     state.controlPanel = panel;
+    restoreControlPosition(panel);
 
     panel.querySelector(".ghzh-control__switch").addEventListener("click", togglePageTranslation);
-    panel.querySelector(".ghzh-control__settings").addEventListener("click", () => {
-      chrome.runtime.openOptionsPage();
-    });
+    panel.querySelector(".ghzh-control__settings").addEventListener("click", openOptionsPage);
+    panel.querySelector(".ghzh-control__minimize").addEventListener("click", toggleControlMini);
+    panel.querySelector(".ghzh-control__head").addEventListener("pointerdown", startPanelDrag);
     updateControlPanel();
   }
 
@@ -223,8 +229,113 @@
     panel.dataset.enabled = String(enabled);
     switchText.textContent = enabled ? "翻译" : "原文";
     status.textContent = enabled
-      ? (hasAi ? `AI: ${state.settings.ai.model}` : "AI 未配置: 仅固定界面")
+      ? (hasAi ? `AI: ${state.settings.ai.model}` : "介绍需 AI: 点设置")
       : "原文模式";
+  }
+
+  function openOptionsPage() {
+    const status = state.controlPanel?.querySelector(".ghzh-control__status");
+    chrome.runtime.sendMessage({ type: "GHZH_OPEN_OPTIONS" }, (response) => {
+      const error = chrome.runtime.lastError?.message || response?.error;
+      if (error && status) status.textContent = `设置页打开失败: ${error}`;
+    });
+  }
+
+  function toggleControlMini(event) {
+    event.stopPropagation();
+    const panel = state.controlPanel || document.querySelector(".ghzh-control");
+    if (!panel) return;
+    const nextMini = !panel.classList.contains("ghzh-control--mini");
+    panel.classList.toggle("ghzh-control--mini", nextMini);
+    const button = panel.querySelector(".ghzh-control__minimize");
+    if (!button) return;
+    button.textContent = nextMini ? "+" : "−";
+    button.setAttribute("aria-label", nextMini ? "展开面板" : "缩小面板");
+    button.setAttribute("title", nextMini ? "展开面板" : "缩小面板");
+  }
+
+  function startPanelDrag(event) {
+    if (event.button !== 0) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("button")) return;
+    const panel = state.controlPanel || document.querySelector(".ghzh-control");
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    state.dragging = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top
+    };
+    panel.classList.add("ghzh-control--dragging");
+    panel.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+    window.addEventListener("pointermove", movePanelDrag, { passive: false });
+    window.addEventListener("pointerup", stopPanelDrag, { once: true });
+    window.addEventListener("pointercancel", stopPanelDrag, { once: true });
+  }
+
+  function movePanelDrag(event) {
+    if (!state.dragging) return;
+    const panel = state.controlPanel || document.querySelector(".ghzh-control");
+    if (!panel) return;
+    event.preventDefault();
+    const rect = panel.getBoundingClientRect();
+    const nextLeft = clamp(state.dragging.left + event.clientX - state.dragging.startX, 6, window.innerWidth - rect.width - 6);
+    const nextTop = clamp(state.dragging.top + event.clientY - state.dragging.startY, 6, window.innerHeight - rect.height - 6);
+    panel.style.left = `${nextLeft}px`;
+    panel.style.top = `${nextTop}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+  }
+
+  function stopPanelDrag(event) {
+    const panel = state.controlPanel || document.querySelector(".ghzh-control");
+    window.removeEventListener("pointermove", movePanelDrag);
+    window.removeEventListener("pointerup", stopPanelDrag);
+    window.removeEventListener("pointercancel", stopPanelDrag);
+    if (panel && state.dragging) {
+      panel.releasePointerCapture?.(state.dragging.pointerId);
+      panel.classList.remove("ghzh-control--dragging");
+      saveControlPosition(panel);
+    }
+    state.dragging = null;
+  }
+
+  function restoreControlPosition(panel) {
+    const saved = readControlPosition();
+    if (!saved) return;
+    window.requestAnimationFrame(() => {
+      const rect = panel.getBoundingClientRect();
+      panel.style.left = `${clamp(saved.left, 6, window.innerWidth - rect.width - 6)}px`;
+      panel.style.top = `${clamp(saved.top, 6, window.innerHeight - rect.height - 6)}px`;
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+    });
+  }
+
+  function readControlPosition() {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(CONTROL_POSITION_KEY) || "null");
+      if (Number.isFinite(parsed?.left) && Number.isFinite(parsed?.top)) return parsed;
+    } catch (error) {
+      // Ignore unavailable page storage.
+    }
+    return null;
+  }
+
+  function saveControlPosition(panel) {
+    try {
+      const rect = panel.getBoundingClientRect();
+      window.localStorage.setItem(CONTROL_POSITION_KEY, JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }));
+    } catch (error) {
+      // Ignore unavailable page storage.
+    }
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), Math.max(min, max));
   }
 
   function queueUiRun(root) {

@@ -118,8 +118,24 @@ try {
   await page.waitForSelector(".ghzh-control", { timeout: 10000 });
   const controlText = await page.locator(".ghzh-control").innerText({ timeout: 5000 });
   const controlSwitchState = await page.locator(".ghzh-control__switch").getAttribute("aria-checked", { timeout: 5000 });
-  assert.match(controlText, /中文语义|翻译/);
+  assert.match(controlText, /中文|翻译/);
   assert.equal(controlSwitchState, "true");
+  await page.locator(".ghzh-control__minimize").click();
+  await expectClass(page, ".ghzh-control", /ghzh-control--mini/);
+  await page.locator(".ghzh-control__minimize").click();
+  await page.locator(".ghzh-control__head").dragTo(page.locator("body"), {
+    targetPosition: { x: 1220, y: 220 }
+  });
+  const movedLeft = await page.locator(".ghzh-control").evaluate((node) => node.getBoundingClientRect().left);
+  assert.ok(movedLeft > 1000, "expected draggable control panel to move horizontally");
+  const [optionsPage] = await Promise.all([
+    context.waitForEvent("page", { timeout: 10000 }),
+    page.locator(".ghzh-control__settings").click()
+  ]);
+  await optionsPage.waitForLoadState("domcontentloaded", { timeout: 10000 });
+  assert.equal(optionsPage.url(), `chrome-extension://${extensionId}/options.html`);
+  await optionsPage.close();
+  await page.bringToFront();
   await serviceWorker.evaluate(async () => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]?.id) {
@@ -220,4 +236,9 @@ function translateForTest(text) {
     .replace(/\brepositories\b/gi, "仓库")
     .replace(/\bmaintainers?\b/gi, "维护者")
     .replace(/\bcontext\b/gi, "上下文");
+}
+
+async function expectClass(page, selector, pattern) {
+  const className = await page.locator(selector).getAttribute("class", { timeout: 5000 });
+  assert.match(className || "", pattern);
 }

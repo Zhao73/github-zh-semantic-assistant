@@ -33,6 +33,13 @@ chrome.commands.onCommand.addListener(async (command) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== "string") return false;
 
+  if (message.type === "GHZH_OPEN_OPTIONS") {
+    chrome.runtime.openOptionsPage()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: readableError(error) }));
+    return true;
+  }
+
   if (message.type === "GHZH_TRANSLATE_BATCH") {
     translateBatch(message.items || [], { pageTerms: message.pageTerms || [] })
       .then((result) => sendResponse(result))
