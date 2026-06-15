@@ -81,6 +81,14 @@ Open the extension settings page and fill:
 - `Model`: default `gpt-4.1-mini`
 - `API Key`: your OpenAI-compatible API key
 
+The settings page includes one-click presets:
+
+- `DeepSeek V4 Flash`: `https://api.deepseek.com` + `deepseek-v4-flash`
+- `OpenAI GPT-4.1 mini`: `https://api.openai.com/v1` + `gpt-4.1-mini`
+- `本地兼容端点`: `http://127.0.0.1:11434/v1` + `qwen2.5:7b-instruct`
+
+Selecting a preset fills only Base URL, Model, and JSON mode. It never overwrites your API key.
+
 For a local endpoint such as `http://localhost:11434/v1`, the API key can be blank.
 
 Without AI configuration, the extension still translates GitHub fixed UI labels, but it will not translate README or issue content.

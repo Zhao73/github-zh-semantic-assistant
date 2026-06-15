@@ -81,6 +81,11 @@ h2 {
   color: var(--muted);
 }
 
+.compact {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -116,6 +121,41 @@ h2 {
   margin-bottom: 8px;
   color: var(--text);
   font-weight: 600;
+}
+
+.presetGroup {
+  margin-bottom: 16px;
+}
+
+.presetGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.presetButton {
+  display: grid;
+  gap: 3px;
+  min-height: 0;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.presetButton[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.presetButton__title {
+  color: var(--text);
+  font-weight: 750;
+}
+
+.presetButton__desc {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 input,

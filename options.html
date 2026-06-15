@@ -46,6 +46,10 @@
 
         <section class="section">
           <h2>AI 模型</h2>
+          <div class="presetGroup" aria-label="AI 模型预设">
+            <p class="hint compact">选择预设只会填入 Base URL、Model 和 JSON mode，不会覆盖 API Key。</p>
+            <div id="aiPresets" class="presetGrid"></div>
+          </div>
           <label class="field">
             <span>Base URL</span>
             <input id="baseUrl" type="url" autocomplete="off" spellcheck="false">

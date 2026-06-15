@@ -1,6 +1,6 @@
 {
   "name": "github-zh-semantic-assistant",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A Chrome extension that translates GitHub UI and repository content into precise Chinese with AI-era terminology.",
   "private": false,
   "license": "MIT",

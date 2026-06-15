@@ -134,6 +134,10 @@ try {
   ]);
   await optionsPage.waitForLoadState("domcontentloaded", { timeout: 10000 });
   assert.equal(optionsPage.url(), `chrome-extension://${extensionId}/options.html`);
+  await optionsPage.locator("[data-preset-id='deepseek-v4-flash']").click();
+  assert.equal(await optionsPage.locator("#baseUrl").inputValue(), "https://api.deepseek.com");
+  assert.equal(await optionsPage.locator("#model").inputValue(), "deepseek-v4-flash");
+  assert.equal(await optionsPage.locator("#useJsonMode").isChecked(), true);
   await optionsPage.close();
   await page.bringToFront();
   await serviceWorker.evaluate(async () => {

@@ -54,6 +54,10 @@ assert.equal(ghzh.translateUiText("Showing 0-18 of 158 items"), "显示第 0-18 
 assert.equal(ghzh.translateUiText("Clear out the clutter."), "清理杂乱通知。");
 assert.equal(ghzh.hasAiConfig(ghzh.mergeSettings({ ai: { baseUrl: "http://localhost:11434/v1", model: "qwen2.5" } })), true);
 assert.equal(ghzh.hasAiConfig(ghzh.mergeSettings({ ai: { baseUrl: "https://api.openai.com/v1", model: "gpt-4.1-mini" } })), false);
+const deepSeekPreset = ghzh.AI_PRESETS.find((preset) => preset.id === "deepseek-v4-flash");
+assert.equal(deepSeekPreset.ai.baseUrl, "https://api.deepseek.com");
+assert.equal(deepSeekPreset.ai.model, "deepseek-v4-flash");
+assert.equal(deepSeekPreset.ai.useJsonMode, true);
 assert.equal(ghzh.looksLikeProtectedName("openai/openai-cookbook"), true);
 assert.equal(ghzh.looksLikeProtectedName("LangChain"), true);
 assert.equal(ghzh.looksLikeProtectedName("repository"), false);

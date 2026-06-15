@@ -115,6 +115,39 @@
     protectedTerms: DEFAULT_PROTECTED_TERMS
   };
 
+  const AI_PRESETS = [
+    {
+      id: "deepseek-v4-flash",
+      label: "DeepSeek V4 Flash",
+      description: "低成本 OpenAI-compatible 翻译，官方 Base URL",
+      ai: {
+        baseUrl: "https://api.deepseek.com",
+        model: "deepseek-v4-flash",
+        useJsonMode: true
+      }
+    },
+    {
+      id: "openai-gpt-4-1-mini",
+      label: "OpenAI GPT-4.1 mini",
+      description: "默认 OpenAI API 配置，适合稳定通用翻译",
+      ai: {
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4.1-mini",
+        useJsonMode: true
+      }
+    },
+    {
+      id: "local-openai-compatible",
+      label: "本地兼容端点",
+      description: "Ollama、LM Studio 或 LocalAI；API Key 可留空",
+      ai: {
+        baseUrl: "http://127.0.0.1:11434/v1",
+        model: "qwen2.5:7b-instruct",
+        useJsonMode: true
+      }
+    }
+  ];
+
   const UI_DICTIONARY = {
     "About": "关于",
     "Actions": "自动化",
@@ -597,6 +630,7 @@
     DEFAULT_SETTINGS,
     DEFAULT_GLOSSARY,
     DEFAULT_PROTECTED_TERMS,
+    AI_PRESETS,
     UI_DICTIONARY,
     mergeSettings,
     normalizeLabel,

@@ -14,6 +14,7 @@
     model: document.querySelector("#model"),
     apiKey: document.querySelector("#apiKey"),
     useJsonMode: document.querySelector("#useJsonMode"),
+    aiPresets: document.querySelector("#aiPresets"),
     glossary: document.querySelector("#glossary"),
     protectProperNouns: document.querySelector("#protectProperNouns"),
     protectedTerms: document.querySelector("#protectedTerms"),
@@ -57,6 +58,7 @@
     fields.glossary.value = settings.glossary;
     fields.protectProperNouns.checked = settings.protectProperNouns;
     fields.protectedTerms.value = settings.protectedTerms;
+    renderAiPresets();
     setStatus(
       GHZH.hasAiConfig(settings) ? "AI 翻译已配置。" : "请先填写 API Key，或使用 localhost 兼容端点。",
       GHZH.hasAiConfig(settings) ? "ready" : "warn"
@@ -70,6 +72,12 @@
     });
 
     buttons.test.addEventListener("click", testTranslation);
+    fields.aiPresets.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-preset-id]");
+      if (!button) return;
+      const preset = GHZH.AI_PRESETS.find((item) => item.id === button.dataset.presetId);
+      if (preset) applyAiPreset(preset);
+    });
     buttons.resetGlossary.addEventListener("click", () => {
       fields.glossary.value = GHZH.DEFAULT_GLOSSARY;
       setStatus("术语表已恢复为默认内容，点击保存后生效。", "ready");
@@ -82,6 +90,42 @@
       await chrome.storage.local.remove(CACHE_KEY);
       setStatus("翻译缓存已清空。", "ready");
     });
+  }
+
+  function renderAiPresets() {
+    fields.aiPresets.textContent = "";
+    GHZH.AI_PRESETS.forEach((preset) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "presetButton";
+      button.dataset.presetId = preset.id;
+      button.setAttribute("aria-pressed", String(isActivePreset(preset)));
+
+      const title = document.createElement("span");
+      title.className = "presetButton__title";
+      title.textContent = preset.label;
+
+      const description = document.createElement("span");
+      description.className = "presetButton__desc";
+      description.textContent = preset.description;
+
+      button.append(title, description);
+      fields.aiPresets.append(button);
+    });
+  }
+
+  function applyAiPreset(preset) {
+    fields.baseUrl.value = preset.ai.baseUrl;
+    fields.model.value = preset.ai.model;
+    fields.useJsonMode.checked = preset.ai.useJsonMode;
+    renderAiPresets();
+    setStatus(`已应用 ${preset.label} 预设。填写 API Key 后保存即可生效。`, "ready");
+  }
+
+  function isActivePreset(preset) {
+    return fields.baseUrl.value.trim() === preset.ai.baseUrl &&
+      fields.model.value.trim() === preset.ai.model &&
+      fields.useJsonMode.checked === preset.ai.useJsonMode;
   }
 
   async function saveFromForm() {
