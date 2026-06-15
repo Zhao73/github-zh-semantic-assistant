@@ -12,6 +12,15 @@
     "#readme article.markdown-body blockquote",
     "#readme article.markdown-body td",
     "#readme article.markdown-body th",
+    "article.markdown-body h1",
+    "article.markdown-body h2",
+    "article.markdown-body h3",
+    "article.markdown-body h4",
+    "article.markdown-body p",
+    "article.markdown-body li",
+    "article.markdown-body blockquote",
+    "article.markdown-body td",
+    "article.markdown-body th",
     ".comment-body .markdown-body p",
     ".comment-body .markdown-body li",
     ".comment-body .markdown-body blockquote",
@@ -65,7 +74,8 @@
     originals: new WeakMap(),
     attrOriginals: new WeakMap(),
     htmlOriginals: new WeakMap(),
-    pendingIds: new Set()
+    pendingIds: new Set(),
+    forceSemanticRetry: false
   };
 
   start();
@@ -90,10 +100,16 @@
 
   function handleStorageChange(changes, areaName) {
     if (areaName !== "local" || !changes[STORE_KEY]) return;
+    const previousSettings = state.settings;
     state.settings = GHZH.mergeSettings(changes[STORE_KEY].newValue);
+    if (semanticConfigChanged(previousSettings, state.settings)) {
+      resetSemanticBlocks();
+    } else {
+      clearRetryableSemanticStates();
+    }
     updateControlPanel();
     if (state.settings.enabled) {
-      runNow();
+      runNow({ retrySemantic: true });
       installObserver();
       installNavigationListeners();
     } else {
@@ -105,7 +121,8 @@
   function handleRuntimeMessage(message, sender, sendResponse) {
     if (!message || typeof message.type !== "string") return false;
     if (message.type === "GHZH_RUN_NOW") {
-      runNow();
+      clearRetryableSemanticStates();
+      runNow({ retrySemantic: true });
       sendResponse({ ok: true });
       return true;
     }
@@ -165,13 +182,13 @@
     scheduleSemanticRun(220);
   }
 
-  function runNow() {
+  function runNow(options = {}) {
     if (!state.settings || !state.settings.enabled) return;
     updateControlPanel();
     const root = document.body || document.documentElement;
     if (!root) return;
     if (state.settings.translateUi) translateUi(root);
-    if (state.settings.translateLongText) scheduleSemanticRun(0);
+    if (state.settings.translateLongText) scheduleSemanticRun(0, options);
   }
 
   function installControlPanel() {
@@ -354,8 +371,9 @@
     });
   }
 
-  function scheduleSemanticRun(delay) {
+  function scheduleSemanticRun(delay, options = {}) {
     if (!state.settings?.enabled || !state.settings.translateLongText) return;
+    if (options.retrySemantic) state.forceSemanticRetry = true;
     clearTimeout(state.semanticScheduled);
     state.semanticScheduled = window.setTimeout(translateSemanticBlocks, delay);
   }
@@ -455,9 +473,14 @@
   }
 
   function translateSemanticBlocks() {
-    if (!GHZH.hasAiConfig(state.settings)) return;
+    if (!GHZH.hasAiConfig(state.settings)) {
+      updateControlPanel();
+      return;
+    }
 
-    const candidates = collectSemanticCandidates()
+    const retryFailed = state.forceSemanticRetry;
+    state.forceSemanticRetry = false;
+    const candidates = collectSemanticCandidates({ retryFailed })
       .slice(0, Math.max(1, state.settings.maxBlocksPerRun || 32));
 
     if (!candidates.length) return;
@@ -466,6 +489,7 @@
       item.element.dataset.ghzhState = "loading";
       state.pendingIds.add(item.id);
     });
+    setControlStatus(`AI 翻译中: ${candidates.length} 条`);
 
     chrome.runtime.sendMessage(
       {
@@ -480,28 +504,37 @@
       (response) => {
         if (chrome.runtime.lastError) {
           markCandidates(candidates, "error", chrome.runtime.lastError.message);
+          setControlStatus(`翻译失败: ${shortStatus(chrome.runtime.lastError.message)}`);
           return;
         }
         if (!response?.ok) {
           markCandidates(candidates, "error", response?.error || "翻译失败");
+          setControlStatus(`翻译失败: ${shortStatus(response?.error || "未知错误")}`);
           return;
         }
-        const byId = new Map((response.translations || []).map((entry) => [entry.id, entry.zh]));
+        const translations = response.translations || [];
+        const byId = new Map(translations.map((entry) => [entry.id, entry.zh]));
+        const cachedCount = translations.filter((entry) => entry.cached).length;
+        let renderedCount = 0;
         candidates.forEach((item) => {
           const zh = byId.get(item.id);
           if (zh) {
             renderTranslation(item.element, zh);
             item.element.dataset.ghzhState = "done";
+            renderedCount += 1;
           } else {
             item.element.dataset.ghzhState = "skipped";
           }
           state.pendingIds.delete(item.id);
         });
+        setControlStatus(cachedCount
+          ? `已翻译 ${renderedCount} 条，缓存 ${cachedCount} 条`
+          : `已翻译 ${renderedCount} 条`);
       }
     );
   }
 
-  function collectSemanticCandidates() {
+  function collectSemanticCandidates(options = {}) {
     const elements = new Set();
     TRANSLATION_SELECTORS.forEach((selector) => {
       document.querySelectorAll(selector).forEach((element) => elements.add(element));
@@ -511,7 +544,10 @@
     elements.forEach((element) => {
       if (!(element instanceof HTMLElement)) return;
       if (shouldSkipElement(element)) return;
-      if (element.dataset.ghzhState || element.nextElementSibling?.classList.contains("ghzh-translation")) return;
+      const semanticState = element.dataset.ghzhState;
+      if (semanticState === "loading" || semanticState === "done") return;
+      if ((semanticState === "error" || semanticState === "skipped") && !options.retryFailed) return;
+      if (element.nextElementSibling?.classList.contains("ghzh-translation")) return;
 
       const text = visibleText(element);
       if (!isTranslatableLongText(text)) return;
@@ -611,15 +647,35 @@
     });
   }
 
-  function shouldSkipElement(element) {
-    return Boolean(element.closest(SKIP_SELECTOR));
+  function semanticConfigChanged(previous, next) {
+    if (!previous || !next) return false;
+    return semanticFingerprint(previous) !== semanticFingerprint(next);
   }
 
-  function shouldSkipAttributeElement(element) {
-    return Boolean(element.closest("script, style, noscript, template, code, pre, kbd, samp, svg, canvas, .blob-code, .blob-num, .CodeMirror, .cm-editor, .highlight, .ghzh-translation"));
+  function semanticFingerprint(settings) {
+    return JSON.stringify({
+      translateLongText: Boolean(settings.translateLongText),
+      mode: settings.mode,
+      aiBaseUrl: settings.ai?.baseUrl || "",
+      aiModel: settings.ai?.model || "",
+      aiJson: Boolean(settings.ai?.useJsonMode),
+      hasApiKey: Boolean(settings.ai?.apiKey),
+      glossary: settings.glossary || "",
+      protectProperNouns: Boolean(settings.protectProperNouns),
+      protectedTerms: settings.protectedTerms || ""
+    });
   }
 
-  function restorePage() {
+  function clearRetryableSemanticStates() {
+    state.pendingIds.clear();
+    document.querySelectorAll("[data-ghzh-state='error'], [data-ghzh-state='skipped'], [data-ghzh-state='loading']").forEach((element) => {
+      delete element.dataset.ghzhState;
+      delete element.dataset.ghzhError;
+    });
+  }
+
+  function resetSemanticBlocks() {
+    state.pendingIds.clear();
     document.querySelectorAll(".ghzh-translation").forEach((element) => element.remove());
     document.querySelectorAll("[data-ghzh-state], [data-ghzh-id], [data-ghzh-error]").forEach((element) => {
       delete element.dataset.ghzhState;
@@ -630,6 +686,27 @@
       if (state.htmlOriginals.has(element)) element.innerHTML = state.htmlOriginals.get(element);
       element.classList.remove("ghzh-replaced");
     });
+  }
+
+  function setControlStatus(message) {
+    const status = state.controlPanel?.querySelector(".ghzh-control__status");
+    if (status) status.textContent = message;
+  }
+
+  function shortStatus(message) {
+    return String(message || "").replace(/\s+/g, " ").trim().slice(0, 72);
+  }
+
+  function shouldSkipElement(element) {
+    return Boolean(element.closest(SKIP_SELECTOR));
+  }
+
+  function shouldSkipAttributeElement(element) {
+    return Boolean(element.closest("script, style, noscript, template, code, pre, kbd, samp, svg, canvas, .blob-code, .blob-num, .CodeMirror, .cm-editor, .highlight, .ghzh-translation"));
+  }
+
+  function restorePage() {
+    resetSemanticBlocks();
     state.originals = new WeakMap();
     state.attrOriginals = new WeakMap();
     state.htmlOriginals = new WeakMap();

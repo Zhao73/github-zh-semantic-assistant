@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub 中文语义助手",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "把 GitHub 的界面、仓库介绍、README、Issue 和 PR 内容翻译成准确的中文技术语义。",
   "icons": {
     "16": "assets/icons/icon16.png",

@@ -104,6 +104,20 @@ try {
     });
   }, { port });
 
+  const cacheProbePage = await context.newPage();
+  await cacheProbePage.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: "domcontentloaded", timeout: 10000 });
+  const cacheProbe = `Cache probe ${Date.now()} Agentic workflows with RAG and tool calling help maintainers triage issues.`;
+  const cacheRequestsBefore = aiRequests.length;
+  const cacheFirst = await sendTranslateBatch(cacheProbePage, cacheProbe, "cache-first");
+  const cacheRequestsAfterFirst = aiRequests.length;
+  const cacheSecond = await sendTranslateBatch(cacheProbePage, cacheProbe, "cache-second");
+  assert.equal(cacheFirst.ok, true);
+  assert.equal(cacheSecond.ok, true);
+  assert.equal(cacheRequestsAfterFirst, cacheRequestsBefore + 1);
+  assert.equal(aiRequests.length, cacheRequestsAfterFirst, "expected cached repeat translation to avoid another AI request");
+  assert.equal(cacheSecond.translations[0].cached, true);
+  await cacheProbePage.close();
+
   const page = await context.newPage();
   page.on("console", (message) => {
     if (["error", "warning"].includes(message.type())) {
@@ -140,16 +154,7 @@ try {
   assert.equal(await optionsPage.locator("#useJsonMode").isChecked(), true);
   await optionsPage.close();
   await page.bringToFront();
-  await serviceWorker.evaluate(async () => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]?.id) {
-      try {
-        await chrome.tabs.sendMessage(tabs[0].id, { type: "GHZH_RUN_NOW" });
-      } catch (error) {
-        // The content script also runs automatically; this only removes first-install timing flake.
-      }
-    }
-  });
+  assert.equal(await triggerGitHubRun(serviceWorker, "https://github.com/openai/openai-cookbook"), true);
   await page.waitForSelector(".ghzh-translation", { timeout: 30000 });
 
   const bodyText = await page.locator("body").innerText({ timeout: 10000 });
@@ -157,6 +162,7 @@ try {
   assert.match(bodyText, /openai-cookbook/);
   assert.match(bodyText, /LangChain|OpenAI|Cookbook|API|GPT|Python/i);
   assert.ok(await page.locator(".ghzh-translation").count() > 0, "expected at least one Chinese translation panel");
+  assert.ok(await page.locator("article.markdown-body .ghzh-translation").count() > 0, "expected README markdown body translations");
 
   const promptText = aiRequests.map((entry) => entry.userPrompt).join("\n");
   assert.match(promptText, /openai\/openai-cookbook/);
@@ -175,34 +181,66 @@ try {
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(fatalConsole, []);
 
+  const freeCodeCampRequestStart = aiRequests.length;
+  await page.goto("https://github.com/freeCodeCamp/freeCodeCamp", { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
+  assert.equal(await triggerGitHubRun(serviceWorker, "https://github.com/freeCodeCamp/freeCodeCamp"), true);
+  await page.waitForFunction(() => document.querySelectorAll("article.markdown-body .ghzh-translation").length > 0, null, { timeout: 30000 });
+  assert.ok(
+    aiRequests.slice(freeCodeCampRequestStart).some((entry) => entry.items.some((item) => /freeCodeCamp\.org|learn to code for free/i.test(item.text))),
+    "expected the freeCodeCamp README body to be sent for semantic translation"
+  );
+
+  await page.evaluate(() => {
+    const element = [...document.querySelectorAll("article.markdown-body p")]
+      .find((candidate) => (candidate.innerText || candidate.textContent || "").replace(/\s+/g, " ").trim().length > 30 &&
+        candidate.nextElementSibling?.classList.contains("ghzh-translation"));
+    if (!element) throw new Error("No translated README paragraph found for retry probe.");
+    document.querySelectorAll("article.markdown-body h1, article.markdown-body h2, article.markdown-body h3, article.markdown-body h4, article.markdown-body p, article.markdown-body li, article.markdown-body blockquote, article.markdown-body td, article.markdown-body th")
+      .forEach((candidate) => {
+        if (candidate !== element) candidate.dataset.ghzhState = "done";
+      });
+    if (element.nextElementSibling?.classList.contains("ghzh-translation")) {
+      element.nextElementSibling.remove();
+    }
+    element.dataset.ghzhState = "error";
+    element.dataset.ghzhError = "old setup failure";
+    element.dataset.ghzhRetryProbe = "true";
+  });
+  assert.equal(await triggerGitHubRun(serviceWorker, "https://github.com/freeCodeCamp/freeCodeCamp"), true);
+  try {
+    await page.waitForFunction(() => {
+      const firstParagraph = document.querySelector("[data-ghzh-retry-probe='true']");
+      return firstParagraph?.dataset.ghzhState === "done" &&
+        firstParagraph.nextElementSibling?.classList.contains("ghzh-translation");
+    }, null, { timeout: 30000 });
+  } catch (error) {
+    console.error(JSON.stringify(await page.evaluate(() => {
+      const firstParagraph = document.querySelector("[data-ghzh-retry-probe='true']");
+      return {
+        paragraphText: firstParagraph?.innerText || "",
+        state: firstParagraph?.dataset.ghzhState || "",
+        error: firstParagraph?.dataset.ghzhError || "",
+        id: firstParagraph?.dataset.ghzhId || "",
+        nextClass: firstParagraph?.nextElementSibling?.className || "",
+        nextText: firstParagraph?.nextElementSibling?.innerText || "",
+        panelStatus: document.querySelector(".ghzh-control__status")?.textContent || "",
+        translationCount: document.querySelectorAll("article.markdown-body .ghzh-translation").length
+      };
+    }), null, 2));
+    throw error;
+  }
+
   await page.goto("https://github.com/trending", { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
-  await serviceWorker.evaluate(async () => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]?.id) {
-      try {
-        await chrome.tabs.sendMessage(tabs[0].id, { type: "GHZH_RUN_NOW" });
-      } catch (error) {
-        // The content script also runs automatically; this only removes first-install timing flake.
-      }
-    }
-  });
+  assert.equal(await triggerGitHubRun(serviceWorker, "https://github.com/trending"), true);
   await page.waitForSelector(".ghzh-translation", { timeout: 30000 });
   const trendingText = await page.locator("body").innerText({ timeout: 10000 });
   assert.match(trendingText, /趋势|开发者|日期范围|今天|自然语言|编程语言/);
 
   await page.goto("https://github.com/Zhao73?tab=stars", { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
-  await serviceWorker.evaluate(async () => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]?.id) {
-      try {
-        await chrome.tabs.sendMessage(tabs[0].id, { type: "GHZH_RUN_NOW" });
-      } catch (error) {
-        // The content script also runs automatically; this only removes first-install timing flake.
-      }
-    }
-  });
+  assert.equal(await triggerGitHubRun(serviceWorker, "https://github.com/Zhao73"), true);
   await page.waitForSelector(".ghzh-translation", { timeout: 30000 });
   const starsText = await page.locator("body").innerText({ timeout: 10000 });
   assert.match(starsText, /搜索星标|类型：全部|排序：最近星标|已星标|你的星标/);
@@ -245,7 +283,7 @@ function loadPlaywright() {
 
 function translateForTest(text) {
   const source = String(text || "");
-  return source
+  const translated = source
     .replace(/\bAgentic workflows?\b/gi, "智能体工作流")
     .replace(/\bagents?\b/gi, "智能体")
     .replace(/\bRAG\b/g, "检索增强生成")
@@ -256,6 +294,36 @@ function translateForTest(text) {
     .replace(/\brepositories\b/gi, "仓库")
     .replace(/\bmaintainers?\b/gi, "维护者")
     .replace(/\bcontext\b/gi, "上下文");
+  if (/[\u4e00-\u9fff]/.test(translated) && translated !== source) return translated;
+  return `测试译文：${source}`;
+}
+
+async function sendTranslateBatch(extensionPage, text, id) {
+  return extensionPage.evaluate(
+    ({ text, id }) => new Promise((resolveMessage) => {
+      chrome.runtime.sendMessage({
+        type: "GHZH_TRANSLATE_BATCH",
+        pageTerms: [],
+        items: [{ id, text, protectedTerms: [] }]
+      }, resolveMessage);
+    }),
+    { text, id }
+  );
+}
+
+async function triggerGitHubRun(serviceWorker, urlPrefix) {
+  return serviceWorker.evaluate(async ({ urlPrefix }) => {
+    const tabs = await chrome.tabs.query({});
+    const tab = tabs.find((candidate) => (candidate.url || "").startsWith(urlPrefix));
+    if (!tab?.id) return false;
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: "GHZH_RUN_NOW" });
+      return true;
+    } catch (error) {
+      // The content script also runs automatically; this only removes first-install timing flake.
+      return false;
+    }
+  }, { urlPrefix });
 }
 
 async function expectClass(page, selector, pattern) {
