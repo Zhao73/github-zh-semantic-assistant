@@ -126,6 +126,36 @@ try {
   });
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
+  await page.goto("https://github.com", { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
+  await page.waitForSelector("qbsearch-input [data-target='qbsearch-input.inputButtonText']", { timeout: 15000 });
+  assert.equal(await triggerGitHubRun(serviceWorker, "https://github.com/"), true);
+  await page.waitForTimeout(600);
+  const searchText = await page.locator("qbsearch-input [data-target='qbsearch-input.inputButtonText']").innerText({ timeout: 5000 });
+  assert.match(searchText, /(?:Search or jump to|Type \/ to search)/);
+  assert.doesNotMatch(searchText, /搜索|输入/);
+  await page.locator("qbsearch-input [data-target='qbsearch-input.inputButton']").click({ timeout: 10000 });
+  await page.waitForTimeout(800);
+  const searchState = await page.evaluate(() => {
+    const root = document.querySelector("qbsearch-input");
+    const rootRect = root?.getBoundingClientRect();
+    const dialog = document.querySelector("#search-suggestions-dialog");
+    const container = document.querySelector("[data-target='qbsearch-input.queryBuilderContainer']");
+    const dialogRect = dialog?.getBoundingClientRect();
+    return {
+      rootText: root?.innerText || root?.textContent || "",
+      rootVisible: Boolean(rootRect && rootRect.width > 40 && rootRect.height > 20),
+      dialogVisible: Boolean(dialogRect && dialogRect.width > 120 && dialogRect.height > 80 && !container?.hidden),
+      hasQueryBuilder: Boolean(document.querySelector("query-builder")),
+      hasSearchInput: Boolean(document.querySelector("#query-builder-test, [data-target='query-builder.input']"))
+    };
+  });
+  assert.ok(
+    searchState.rootVisible || searchState.dialogVisible || searchState.hasQueryBuilder || searchState.hasSearchInput,
+    `expected GitHub search to remain visible or open a search dialog: ${JSON.stringify(searchState)}`
+  );
+  assert.doesNotMatch(searchState.rootText, /搜索整个 GitHub|输入 \/ 搜索/);
+
   await page.goto("https://github.com/openai/openai-cookbook", { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1200);

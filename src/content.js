@@ -36,6 +36,19 @@
     ".BorderGrid-row .f4"
   ];
 
+  const GITHUB_SEARCH_SKIP_SELECTOR = [
+    "qbsearch-input",
+    "query-builder",
+    "modal-dialog#search-suggestions-dialog",
+    ".search-input-container",
+    ".search-suggestions",
+    ".query-builder-container",
+    "[data-target^='qbsearch-input.']",
+    "[data-target^='query-builder.']",
+    "[data-action*='qbsearch-input']",
+    "[data-hotkey='s,/']"
+  ].join(",");
+
   const SKIP_SELECTOR = [
     "script",
     "style",
@@ -59,7 +72,8 @@
     ".ghzh-control",
     ".ghzh-translation",
     ".ghzh-relative-time",
-    ".ghzh-hidden-original"
+    ".ghzh-hidden-original",
+    GITHUB_SEARCH_SKIP_SELECTOR
   ].join(",");
 
   const state = {
@@ -702,7 +716,7 @@
   }
 
   function shouldSkipAttributeElement(element) {
-    return Boolean(element.closest("script, style, noscript, template, code, pre, kbd, samp, svg, canvas, .blob-code, .blob-num, .CodeMirror, .cm-editor, .highlight, .ghzh-translation"));
+    return Boolean(element.closest(`script, style, noscript, template, code, pre, kbd, samp, svg, canvas, .blob-code, .blob-num, .CodeMirror, .cm-editor, .highlight, .ghzh-translation, ${GITHUB_SEARCH_SKIP_SELECTOR}`));
   }
 
   function restorePage() {
