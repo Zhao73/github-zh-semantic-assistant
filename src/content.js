@@ -18,6 +18,8 @@
     ".js-issue-title",
     "[data-testid='repository-description']",
     "[itemprop='description']",
+    "#user-starred-repos p",
+    "main [data-testid='user-starred-repo-card'] p",
     "main article p",
     "main .Box-row p",
     "main .Box p",

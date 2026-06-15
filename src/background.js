@@ -34,9 +34,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== "string") return false;
 
   if (message.type === "GHZH_OPEN_OPTIONS") {
-    chrome.runtime.openOptionsPage()
-      .then(() => sendResponse({ ok: true }))
-      .catch((error) => sendResponse({ ok: false, error: readableError(error) }));
+    openOptionsPage(sendResponse);
     return true;
   }
 
@@ -58,6 +56,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+
+function openOptionsPage(sendResponse) {
+  let responded = false;
+  const finish = (payload) => {
+    if (responded) return;
+    responded = true;
+    sendResponse(payload);
+  };
+
+  try {
+    const result = chrome.runtime.openOptionsPage(() => {
+      const error = chrome.runtime.lastError?.message;
+      finish(error ? { ok: false, error } : { ok: true });
+    });
+    if (result && typeof result.then === "function") {
+      result
+        .then(() => finish({ ok: true }))
+        .catch((error) => finish({ ok: false, error: readableError(error) }));
+    }
+  } catch (error) {
+    finish({ ok: false, error: readableError(error) });
+  }
+}
 
 async function getSettings() {
   const stored = await chrome.storage.local.get(STORE_KEY);

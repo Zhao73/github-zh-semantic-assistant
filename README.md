@@ -85,6 +85,10 @@ For a local endpoint such as `http://localhost:11434/v1`, the API key can be bla
 
 Without AI configuration, the extension still translates GitHub fixed UI labels, but it will not translate README or issue content.
 
+Hosted API providers usually bill model usage through the provider account. To avoid hosted API billing, run a local OpenAI-compatible endpoint such as Ollama or another local model server and set `Base URL` to that local endpoint.
+
+The extension does not reuse Claude Code or Codex OAuth sessions. Those logins belong to their own desktop or CLI tools and are not a stable browser-extension translation API. Use an official API key, a local OpenAI-compatible endpoint, or a separate local bridge if you intentionally build and run one yourself.
+
 ## Terminology Rules
 
 Default glossary examples:

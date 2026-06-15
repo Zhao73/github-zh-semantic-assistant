@@ -128,6 +128,7 @@
     "All pull requests": "全部拉取请求",
     "All repositories": "全部仓库",
     "All workflows": "全部工作流",
+    "Achievements": "成就",
     "Archive": "归档",
     "Archived": "已归档",
     "Agents": "智能体",
@@ -227,6 +228,7 @@
     "Insights": "洞察",
     "Issues": "议题",
     "Labels": "标签",
+    "Language": "语言",
     "Languages": "语言",
     "Language:": "编程语言：",
     "Language: Any": "编程语言：任意",
@@ -244,6 +246,7 @@
     "Merged": "已合并",
     "Milestone": "里程碑",
     "Milestones": "里程碑",
+    "Lists": "列表",
     "New": "新建",
     "New issue": "新建议题",
     "MCP registry": "MCP 注册表",
@@ -308,6 +311,7 @@
     "Search notifications": "搜索通知",
     "Search or jump to...": "搜索或跳转到...",
     "Search for repositories": "搜索仓库",
+    "Search stars": "搜索星标",
     "Secrets": "密钥",
     "Secrets and variables": "密钥和变量",
     "Secret scanning alerts": "密钥扫描警报",
@@ -330,6 +334,7 @@
     "Spoken Language:": "自然语言：",
     "Spoken Language: Any": "自然语言：任意",
     "Star": "星标",
+    "Starred": "已星标",
     "Star this repository": "给本仓库加星标",
     "Stars": "星标",
     "stars": "星标",
@@ -349,6 +354,8 @@
     "Trending repositories": "趋势仓库",
     "Trending repositories today": "今日趋势仓库",
     "Try Enterprise": "试用 Enterprise",
+    "Type:": "类型：",
+    "Type: All": "类型：全部",
     "Type / to search": "输入 / 搜索",
     "Unarchive": "取消归档",
     "Unfork": "取消派生",
@@ -388,6 +395,8 @@
     "Privacy": "隐私",
     "Set status": "设置状态",
     "Single sign-on": "单点登录",
+    "Sort": "排序",
+    "Sort by: Recently starred": "排序：最近星标",
     "Sort by: Newest to oldest": "排序：从新到旧",
     "Status": "状态",
     "Try Enterprise Free": "免费试用 Enterprise",
@@ -404,6 +413,11 @@
     "Your repositories": "你的仓库",
     "Your sponsors": "你的赞助",
     "Your stars": "你的星标",
+    "Your Stars": "你的星标",
+    "Showing results": "显示结果",
+    "Recently starred": "最近星标",
+    "Change your avatar": "更改头像",
+    "User navigation": "用户导航",
     "No description, website, or topics provided.": "未提供描述、网站或主题。"
   };
 
@@ -460,6 +474,12 @@
     if (match) return `${match[1]} 关注者`;
     match = core.match(/^(\d[\d,.kKmM]*)\s+commits?$/i);
     if (match) return `${match[1]} 次提交`;
+    match = core.match(/^(\d[\d,.kKmM]*)\s+repositories?$/i);
+    if (match) return `${match[1]} 个仓库`;
+    match = core.match(/^(\d[\d,.kKmM]*)\s+followers?$/i);
+    if (match) return `${match[1]} 关注者`;
+    match = core.match(/^(\d[\d,.kKmM]*)\s+following$/i);
+    if (match) return `${match[1]} 正在关注`;
     match = core.match(/^(\d[\d,.kKmM]*)\s+changed files?$/i);
     if (match) return `${match[1]} 个变更文件`;
     match = core.match(/^(\d[\d,.kKmM]*)\s+conversations?$/i);
@@ -482,6 +502,8 @@
     if (match) return `${match[1]} 位用户已星标此仓库`;
     match = core.match(/^Sponsor\s+(.+)$/i);
     if (match) return `赞助 ${match[1]}`;
+    match = core.match(/^Showing\s+(\d+)-(\d+)\s+of\s+(\d+)\s+items?$/i);
+    if (match) return `显示第 ${match[1]}-${match[2]} 项，共 ${match[3]} 项`;
     match = core.match(/^\+\s*(\d[\d,.kKmM]*)\s+contributors?$/i);
     if (match) return `+ ${match[1]} 位贡献者`;
     match = core.match(/^\+\s*more\s+deployments$/i);
