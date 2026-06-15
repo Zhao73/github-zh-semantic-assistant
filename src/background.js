@@ -66,15 +66,9 @@ function openOptionsPage(sendResponse) {
   };
 
   try {
-    const result = chrome.runtime.openOptionsPage(() => {
-      const error = chrome.runtime.lastError?.message;
-      finish(error ? { ok: false, error } : { ok: true });
-    });
-    if (result && typeof result.then === "function") {
-      result
-        .then(() => finish({ ok: true }))
-        .catch((error) => finish({ ok: false, error: readableError(error) }));
-    }
+    chrome.tabs.create({ url: chrome.runtime.getURL("options.html") })
+      .then(() => finish({ ok: true }))
+      .catch((error) => finish({ ok: false, error: readableError(error) }));
   } catch (error) {
     finish({ ok: false, error: readableError(error) });
   }
